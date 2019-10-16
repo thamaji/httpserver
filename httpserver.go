@@ -218,7 +218,7 @@ func (server *Server) ListenAndServe() error {
 				logger.Println(entry)
 			}()
 
-			handler.ServeHTTP(w, r)
+			handler.ServeHTTP(ww, r)
 		})
 	}
 
