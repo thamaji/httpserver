@@ -26,7 +26,7 @@ func GetLogger(r *http.Request) (Logger, bool) {
 		return DefaultLogger, false
 	}
 
-	logger, ok := v.(*log.Logger)
+	logger, ok := v.(Logger)
 	if !ok {
 		return DefaultLogger, false
 	}
@@ -193,11 +193,16 @@ type tls struct {
 }
 
 func (server *Server) ListenAndServe() error {
-	if logger := server.logger; logger != nil {
+	if server.recoverer != nil {
 		handler := server.server.Handler
 		server.server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), LoggerContextKey, logger)
-			handler.ServeHTTP(w, r.WithContext(ctx))
+			defer func() {
+				if v := recover(); v != nil {
+					server.recoverer(w, r, v, debug.Stack())
+				}
+			}()
+
+			handler.ServeHTTP(w, r)
 		})
 	}
 
@@ -226,16 +231,11 @@ func (server *Server) ListenAndServe() error {
 		})
 	}
 
-	if server.recoverer != nil {
+	if logger := server.logger; logger != nil {
 		handler := server.server.Handler
 		server.server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer func() {
-				if v := recover(); v != nil {
-					server.recoverer(w, r, v, debug.Stack())
-				}
-			}()
-
-			handler.ServeHTTP(w, r)
+			ctx := context.WithValue(r.Context(), LoggerContextKey, logger)
+			handler.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 
