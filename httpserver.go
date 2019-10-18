@@ -14,9 +14,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var DefaultLogger = log.New(os.Stderr, "", log.LstdFlags)
+type Logger interface {
+	Println(...interface{})
+}
 
-func GetLogger(r *http.Request) (*log.Logger, bool) {
+var DefaultLogger Logger = log.New(os.Stderr, "", log.LstdFlags)
+
+func GetLogger(r *http.Request) (Logger, bool) {
 	v := r.Context().Value(LoggerContextKey)
 	if v == nil {
 		return DefaultLogger, false
@@ -43,7 +47,7 @@ func WithPort(port int) Option {
 	}
 }
 
-func WithLogger(logger *log.Logger) Option {
+func WithLogger(logger Logger) Option {
 	return func(server *Server) *Server {
 		server.logger = logger
 		return server
@@ -129,7 +133,7 @@ func New(handler http.Handler, options ...Option) *Server {
 
 type Server struct {
 	server       *http.Server
-	logger       *log.Logger
+	logger       Logger
 	logFormatter LogFormatter
 	recoverer    Recoverer
 	shutdown     *shutdown
